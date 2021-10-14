@@ -22,8 +22,6 @@ import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.google.api.client.util.IOUtils;
-import org.apache.commons.lang3.ObjectUtils;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.json.simple.JSONArray;
@@ -37,6 +35,7 @@ import com.apigee.edge.config.rest.RestUtil;
 import com.apigee.edge.config.utils.ServerProfile;
 import com.google.api.client.http.HttpResponse;
 import com.google.api.client.http.HttpResponseException;
+import com.google.api.client.util.IOUtils;
 import com.google.api.client.util.Key;
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
@@ -55,8 +54,8 @@ public class APIProductMojo extends GatewayAbstractMojo
 {
 	static Logger logger = LoggerFactory.getLogger(APIProductMojo.class);
 	public static final String ____ATTENTION_MARKER____ =
-			"************************************************************************";
-
+	"************************************************************************";
+	
 
 	enum OPTIONS {
 		none, create, update, delete, sync
@@ -66,16 +65,16 @@ public class APIProductMojo extends GatewayAbstractMojo
 
 	private ServerProfile serverProfile;
 
-	public static class APIProduct {
-		@Key
-		public String name;
-	}
-
+    public static class APIProduct {
+        @Key
+        public String name;
+    }
+	
 	public APIProductMojo() {
 		super();
 
 	}
-
+	
 	public void init() throws MojoFailureException {
 		try {
 			logger.info(____ATTENTION_MARKER____);
@@ -83,8 +82,8 @@ public class APIProductMojo extends GatewayAbstractMojo
 			logger.info(____ATTENTION_MARKER____);
 
 			String options="";
-			serverProfile = super.getProfile();
-
+			serverProfile = super.getProfile();			
+	
 			options = super.getOptions();
 			if (options != null) {
 				buildOption = OPTIONS.valueOf(options);
@@ -99,37 +98,36 @@ public class APIProductMojo extends GatewayAbstractMojo
 
 	}
 
-	protected String getAPIProductName(String payload)
-			throws MojoFailureException {
+	protected String getAPIProductName(String payload) 
+            throws MojoFailureException {
 		Gson gson = new Gson();
 		try {
 			APIProduct product = gson.fromJson(payload, APIProduct.class);
 			return product.name;
 		} catch (JsonParseException e) {
-			throw new MojoFailureException(e.getMessage());
+		  throw new MojoFailureException(e.getMessage());
 		}
 	}
+	
+  ////New Added
+    public static String parseAsString(HttpResponse httpResponse) throws IOException {
+    	InputStream content = httpResponse.getContent();
+    	if (content == null) {
+    	return "";
+    	}
+    	ByteArrayOutputStream out = new ByteArrayOutputStream();
+    	IOUtils.copy(content, out, false);
+    	return out.toString(httpResponse.getContentCharset().name());
+    	}
 
-
-
-	public static String parseAsString(HttpResponse httpResponse) throws IOException {
-		InputStream content = httpResponse.getContent();
-		if (content == null) {
-			return "";
-		}
-		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		IOUtils.copy(content, out, false);
-		return out.toString(httpResponse.getContentCharset().name());
-	}
-
-	protected void doUpdate(List<String> products)
-			throws MojoFailureException {
+	protected void doUpdate(List<String> products) 
+            throws MojoFailureException {
 		try {
 			//List existingAPIProducts = null;
-			if (buildOption != OPTIONS.update &&
-					buildOption != OPTIONS.create &&
-					buildOption != OPTIONS.delete &&
-					buildOption != OPTIONS.sync) {
+			if (buildOption != OPTIONS.update && 
+				buildOption != OPTIONS.create &&
+                buildOption != OPTIONS.delete &&
+                buildOption != OPTIONS.sync) {
 				return;
 			}
 
@@ -137,121 +135,131 @@ public class APIProductMojo extends GatewayAbstractMojo
 			//logger.info("Retrieving existing API Products");
 			//existingAPIProducts = getAPIProduct(serverProfile);
 
-			for (String product : products) {
-				String productName = getAPIProductName(product);
+	        for (String product : products) {
+	        	String productName = getAPIProductName(product);
+	        	if (productName == null) {
+	        		throw new IllegalArgumentException(
+	        			"API Product does not have a name.\n" + product + "\n");
+	        	}
 
-				if (productName == null) {
-					throw new IllegalArgumentException(
-							"API Product does not have a name.\n" + product + "\n");
-				}
-
-				if (doesAPIProductExist(serverProfile, productName)) {
-					switch (buildOption) {
-						case update:
-							logger.info("API Product \"" + productName +
-									"\" exists. Updating.");
-
-							///////////////////////////////////////
-							String getResponse = FixedUpdateAPIProduct(serverProfile, productName, product);
-
-							//String getResponses = FixedUpdateAPIProduct(serverProfile, productName, product).parseAsString();
+  
+    					
+    			     /////////////////////////Updated new
+    			     
+	        	if (doesAPIProductExist(serverProfile, productName)) {
+	        		switch (buildOption) {
+	        			case update:
+			        		logger.info("API Product \"" + productName +
+			        		"\" exists. Updating.");
+		
+			        		///////////////////////////////////////
+			        		String getResponse = FixedUpdateAPIProduct(serverProfile, productName, product);
+		
+			        		//String getResponses = FixedUpdateAPIProduct(serverProfile, productName, product).parseAsString();
 			        		/*logger.info("Response = " + getResponse.getContentType() + "\n" +
 			        		getResponse.parseAsString());*/
-							//logger.info("getResponse = "+ parseAsString(getResponse));
-							//logger.info("getResponses = "+getResponses);
-							//String payload = getResponse.getContentType();
-							//logger.info("Payload = "+payload);
-
+			        		//logger.info("getResponse = "+ parseAsString(getResponse));
+			        		//logger.info("getResponses = "+getResponses);
+			        		//String payload = getResponse.getContentType();
+			        		//logger.info("Payload = "+payload);
+		
 			        		/* Parsers fail to parse a string array.
 			        		converting it to an JSON object as a workaround */
-							JSONParser parser = new JSONParser();
-
-							try {
-
-								//Get JSON Body
-								JSONObject newJsonBody = (JSONObject)parser.parse(product);
-								logger.info("Get new API Product(edge) json body= "+ newJsonBody);
-
-								JSONObject jsonBody = (JSONObject)parser.parse(getResponse);
-								logger.info("Get Existing API Product json body= "+ jsonBody);
-
-								//Get API Proxies array from JSON Body
-								JSONArray existingProxiesArr = (JSONArray) jsonBody.get("proxies");
-								logger.info("Get Existing API Product proxies arr= "+ existingProxiesArr);
-
-								JSONArray newProxiesArr = (JSONArray) newJsonBody.get("proxies");
-								logger.info("Get New API Product proxies arr= "+ newProxiesArr);
-
-								//Compare API Proxy array for product
-
-								for(int i=0; i<existingProxiesArr.size(); i++) {
-									for(int j=0; j<newProxiesArr.size(); j++) {
-										if(!(existingProxiesArr.get(i).equals(newProxiesArr.get(j))) || existingProxiesArr.get(i) != newProxiesArr.get(j)) {
-											if(!existingProxiesArr.contains(newProxiesArr.get(j))) {
-												existingProxiesArr.add(newProxiesArr.get(j));
-											}
-										}
-									}
-								}
-								logger.info("Updated Proxies arr= "+ existingProxiesArr);
-								newJsonBody.put("proxies", existingProxiesArr);
-								//System.out.println("newJsonBody= " + newJsonBody);
-								product = newJsonBody.toString();
-								System.out.println("New Product Payload = " + product);
-								updateAPIProduct(serverProfile, productName, product);
-
-//
-							}
-							catch (ParseException e) {
+			        		JSONParser parser = new JSONParser();
+			        		        		
+			        		try {
+				        		
+			        			//Get JSON Body 
+			        			JSONObject newJsonBody = (JSONObject)parser.parse(product);
+				        		logger.info("Get new API Product(edge) json body= "+ newJsonBody);
+				        		
+				        		JSONObject jsonBody = (JSONObject)parser.parse(getResponse);				        		
+				           		logger.info("Get Existing API Product json body= "+ jsonBody);
+				        		
+				        		//Get API Proxies array from JSON Body				        						        	    	        		
+				        		JSONArray existingProxiesArr = (JSONArray) jsonBody.get("proxies");
+				        		logger.info("Get Existing API Product proxies arr= "+ existingProxiesArr);			        		
+				        		
+				        		JSONArray newProxiesArr = (JSONArray) newJsonBody.get("proxies");
+				        		logger.info("Get New API Product proxies arr= "+ newProxiesArr);
+				        		
+				        		//Compare API Proxy array for product
+				        		
+				        		if(existingProxiesArr.size()==0 || existingProxiesArr.toString().equals("[]") || existingProxiesArr.toString().equals("")) {
+				        			existingProxiesArr = newProxiesArr;
+				        			logger.info("In if check= "+ existingProxiesArr);
+				        		}else {
+				        			logger.info("In else check= "+ existingProxiesArr);
+					        		for(int i=0; i<existingProxiesArr.size(); i++) {
+					        			for(int j=0; j<newProxiesArr.size(); j++) {
+					        				if(!(existingProxiesArr.get(i).equals(newProxiesArr.get(j))) || existingProxiesArr.get(i) != newProxiesArr.get(j)) {
+					        					if(!existingProxiesArr.contains(newProxiesArr.get(j))) {	
+					        						existingProxiesArr.add(newProxiesArr.get(j));
+					        					}
+					        				}
+					        			}
+					        		}	
+				        		}
+				        		logger.info("Updated Proxies arr= "+ existingProxiesArr);
+				        		newJsonBody.put("proxies", existingProxiesArr);
+			        			//System.out.println("newJsonBody= " + newJsonBody);
+			        			product = newJsonBody.toString();
+			        			System.out.println("New Product Payload = " + product);
+				        		updateAPIProduct(serverProfile, productName, product);
+	                         				        	
+			        		}
+			        		catch (ParseException e) {
 								// TODO Auto-generated catch block
 								e.printStackTrace();
 							}
+							
+					///////////////////////////////////////
 
-							break;
-						case create:
-							logger.info("API Product \"" + productName +
-									"\" already exists. Skipping.");
-							break;
-						case delete:
-							logger.info("API Product \"" + productName +
-									"\" already exists. Deleting.");
-							deleteAPIProduct(serverProfile, productName);
-							break;
-						case sync:
-							logger.info("API Product \"" + productName +
-									"\" already exists. Deleting and recreating.");
-							deleteAPIProduct(serverProfile, productName);
-							logger.info("Creating API Product - " + productName);
-							createAPIProduct(serverProfile, product);
-							break;
-					}
-				} else {
-					switch (buildOption) {
-						case create:
-						case sync:
-						case update:
-							logger.info("Creating API Product - " + productName);
-							createAPIProduct(serverProfile, product);
-							break;
-						case delete:
-							logger.info("API Product \"" + productName +
-									"\" does not exist. Skipping.");
-							break;
-					}
-				}
+                            break;
+                        case create:
+        			        logger.info("API Product \"" + productName + 
+    									"\" already exists. Skipping.");
+                            break;
+                        case delete:
+                            logger.info("API Product \"" + productName + 
+                                        "\" already exists. Deleting.");
+                            deleteAPIProduct(serverProfile, productName);
+                            break;
+                        case sync:
+                            logger.info("API Product \"" + productName + 
+                                        "\" already exists. Deleting and recreating.");
+                            deleteAPIProduct(serverProfile, productName);
+                            logger.info("Creating API Product - " + productName);
+                            createAPIProduct(serverProfile, product);
+                            break;
+	        		}
+	        	} else {
+                    switch (buildOption) {
+                        case create:
+                        case sync:
+                        case update:
+                            logger.info("Creating API Product - " + productName);
+                            createAPIProduct(serverProfile, product);
+                            break;
+                        case delete:
+                            logger.info("API Product \"" + productName + 
+                                        "\" does not exist. Skipping.");
+                            break;
+                    }
+	        	}
 			}
-
+		
 		} catch (IOException e) {
 			throw new MojoFailureException("Apigee network call error " +
-					e.getMessage());
+														 e.getMessage());
 		} catch (RuntimeException e) {
 			throw e;
 		}
 	}
 
-
-
-	/**
+	
+	
+	/** 
 	 * Entry point for the mojo.
 	 */
 	public void execute() throws MojoExecutionException, MojoFailureException {
@@ -264,7 +272,7 @@ public class APIProductMojo extends GatewayAbstractMojo
 		Logger logger = LoggerFactory.getLogger(APIProductMojo.class);
 
 		try {
-
+			
 			init();
 
 			if (buildOption == OPTIONS.none) {
@@ -272,19 +280,19 @@ public class APIProductMojo extends GatewayAbstractMojo
 				return;
 			}
 
-			if (serverProfile.getEnvironment() == null) {
-				throw new MojoExecutionException(
-						"Apigee environment not found in profile");
-			}
+            if (serverProfile.getEnvironment() == null) {
+                throw new MojoExecutionException(
+                            "Apigee environment not found in profile");
+            }
 
 			List products = getOrgConfig(logger, "apiProducts");
 			if (products == null || products.size() == 0) {
 				logger.info("No API Products found.");
-				return;
+                return;
 			}
 
-			doUpdate(products);
-
+			doUpdate(products);				
+			
 		} catch (MojoFailureException e) {
 			throw e;
 		} catch (RuntimeException e) {
@@ -292,164 +300,163 @@ public class APIProductMojo extends GatewayAbstractMojo
 		}
 	}
 
-	/***************************************************************************
-	 * REST call wrappers
-	 **/
-	public static String createAPIProduct(ServerProfile profile, String product)
-			throws IOException {
-		RestUtil restUtil = new RestUtil(profile);
-		HttpResponse response = restUtil.createOrgConfig(profile,
-				"apiproducts",
-				product);
-		try {
+    /***************************************************************************
+     * REST call wrappers
+     **/
+    public static String createAPIProduct(ServerProfile profile, String product)
+            throws IOException {
+    	RestUtil restUtil = new RestUtil(profile);
+        HttpResponse response = restUtil.createOrgConfig(profile, 
+                                                         "apiproducts",
+                                                         product);
+        try {
 
-			logger.info("Response " + response.getContentType() + "\n" +
-					response.parseAsString());
-			if (response.isSuccessStatusCode())
-				logger.info("Create Success.");
+            logger.info("Response " + response.getContentType() + "\n" +
+                                        response.parseAsString());
+            if (response.isSuccessStatusCode())
+            	logger.info("Create Success.");
 
-		} catch (HttpResponseException e) {
-			logger.error("API Product create error " + e.getMessage());
-			throw new IOException(e.getMessage());
-		}
+        } catch (HttpResponseException e) {
+            logger.error("API Product create error " + e.getMessage());
+            throw new IOException(e.getMessage());
+        }
 
-		return "";
-	}
+        return "";
+    }
+    
+        
+    ///////////////////////Updated 
+    public static String FixedUpdateAPIProduct(ServerProfile profile,
+    		String productName,
+    		String product)
+    		throws IOException {
+	    		logger.info("FixedUpdateAPIProduct() fn call.....");
+	    		RestUtil restUtil = new RestUtil(profile);
+	    		HttpResponse response = restUtil.FixedUpdateOrgConfig(profile,
+	    		"apiproducts",
+	    		productName);
+	
+	    		String respBody = null;
+	    		try {
+		    				
+		    		respBody = parseAsString(response);
+		
+		    		logger.info("Response = " + response.getContentType() + "\n" +
+		    		parseAsString(response));
+		
+		    		if (response.isSuccessStatusCode())
+		    		logger.info("Update Success.");
+	
+	
+	    		} catch (HttpResponseException e) {
+		    		logger.error("API Product update error " + e.getMessage());
+		    		throw new IOException(e.getMessage());
+	    		}
+	
+	    		logger.info("ResponseBody of get payload" + response.getContentType() + "\n" + respBody);
+	
+	
+	    		/*logger.info("Response = " + response.getContentType() + "\n" +
+	    		response.parseAsString());*/
+	    		return respBody;
+    		}
 
-	///////Call function
+    ///////////////////
+    
+    
+    public static String updateAPIProduct(ServerProfile profile, 
+                                        String productName, 
+                                        String product)
+            throws IOException {
+    	RestUtil restUtil = new RestUtil(profile);
+    	
+        HttpResponse response = restUtil.updateOrgConfig(profile, 
+                                                        "apiproducts", 
+                                                        productName,
+                                                        product);
+        try {
+            
+            logger.info("Response " + response.getContentType() + "\n" +
+                                        response.parseAsString());
+            if (response.isSuccessStatusCode())
+            	logger.info("Update Success.");
 
-	public static String FixedUpdateAPIProduct(ServerProfile profile,
-													 String productName,
-													 String product)
-			throws IOException {
-		logger.info("FixedUpdateAPIProduct()");
-		RestUtil restUtil = new RestUtil(profile);
-		HttpResponse response = restUtil.FixedUpdateOrgConfig(profile,
-				"apiproducts",
-				productName);
+        } catch (HttpResponseException e) {
+            logger.error("API Product update error " + e.getMessage());
+            throw new IOException(e.getMessage());
+        }
 
-		String resp = null;
-		try {
-			// IOUtils.copy(response.getContent(), resp , false );
+        return "";
+    }
 
-			resp = parseAsString(response);
+    public static String deleteAPIProduct(ServerProfile profile,
+                                            String productName)
+            throws IOException {
+    	RestUtil restUtil = new RestUtil(profile);
+        HttpResponse response = restUtil.deleteOrgConfig(profile, 
+                                                        "apiproducts", 
+                                                        productName);
+        try {
+            
+            logger.info("Response " + response.getContentType() + "\n" +
+                                        response.parseAsString());
+            if (response.isSuccessStatusCode())
+                logger.info("Delete Success.");
 
-			logger.info("Response = " + response.getContentType() + "\n" +
-					parseAsString(response));
+        } catch (HttpResponseException e) {
+            logger.error("API Product delete error " + e.getMessage());
+            throw new IOException(e.getMessage());
+        }
 
-			if (response.isSuccessStatusCode())
-				logger.info("Update Success.");
+        return "";
+    }
 
+    public static List getAPIProduct(ServerProfile profile)
+            throws IOException {
+    	RestUtil restUtil = new RestUtil(profile);
+        HttpResponse response = restUtil.getOrgConfig(profile, 
+                                                    "apiproducts");
+        if(response == null) return new ArrayList();
+        JSONArray products = null;
+        try {
+            logger.debug("output " + response.getContentType());
+            // response can be read only once
+            String payload = response.parseAsString();
+            logger.debug(payload);
 
-		} catch (HttpResponseException e) {
-			logger.error("API Product update error " + e.getMessage());
-			throw new IOException(e.getMessage());
-		}
+            /* Parsers fail to parse a string array.
+             * converting it to an JSON object as a workaround */
+            String obj = "{ \"products\": " + payload + "}";
 
-		logger.info("Response222 = " + response.getContentType() + "\n" + resp);
+            JSONParser parser = new JSONParser();                
+            JSONObject obj1     = (JSONObject)parser.parse(obj);
+            products    = (JSONArray)obj1.get("products");
 
+        } catch (ParseException pe){
+            logger.error("Get API Product parse error " + pe.getMessage());
+            throw new IOException(pe.getMessage());
+        } catch (HttpResponseException e) {
+            logger.error("Get API Product error " + e.getMessage());
+            throw new IOException(e.getMessage());
+        }
 
-		/*logger.info("Response = " + response.getContentType() + "\n" +
-				response.parseAsString());*/
-		return resp;
-	}
+        return products;
+    }
+    
+    public static boolean doesAPIProductExist(ServerProfile profile, String apiProduct)
+            throws IOException {
+        try {
+        	logger.info("Checking if APIProduct - " +apiProduct + " exist");
+        	RestUtil restUtil = new RestUtil(profile);
+            HttpResponse response = restUtil.getOrgConfig(profile, "apiproducts/"+URLEncoder.encode(apiProduct, "UTF-8"));
+            if(response == null) 
+            	return false;
+        } catch (HttpResponseException e) {
+            throw new IOException(e.getMessage());
+        }
 
-	///////////////////
-
-
-	public static String updateAPIProduct(ServerProfile profile,
-										  String productName,
-										  String product)
-			throws IOException {
-		RestUtil restUtil = new RestUtil(profile);
-
-		HttpResponse response = restUtil.updateOrgConfig(profile,
-				"apiproducts",
-				productName,
-				product);
-		try {
-
-			logger.info("Response " + response.getContentType() + "\n" +
-					response.parseAsString());
-			if (response.isSuccessStatusCode())
-				logger.info("Update Success.");
-
-		} catch (HttpResponseException e) {
-			logger.error("API Product update error " + e.getMessage());
-			throw new IOException(e.getMessage());
-		}
-
-		return "";
-	}
-
-	public static String deleteAPIProduct(ServerProfile profile,
-										  String productName)
-			throws IOException {
-		RestUtil restUtil = new RestUtil(profile);
-		HttpResponse response = restUtil.deleteOrgConfig(profile,
-				"apiproducts",
-				productName);
-		try {
-
-			logger.info("Response " + response.getContentType() + "\n" +
-					response.parseAsString());
-			if (response.isSuccessStatusCode())
-				logger.info("Delete Success.");
-
-		} catch (HttpResponseException e) {
-			logger.error("API Product delete error " + e.getMessage());
-			throw new IOException(e.getMessage());
-		}
-
-		return "";
-	}
-
-	public static List getAPIProduct(ServerProfile profile)
-			throws IOException {
-		RestUtil restUtil = new RestUtil(profile);
-		HttpResponse response = restUtil.getOrgConfig(profile,
-				"apiproducts");
-		if(response == null) return new ArrayList();
-		JSONArray products = null;
-		try {
-			logger.debug("output " + response.getContentType());
-			// response can be read only once
-			String payload = response.parseAsString();
-			logger.debug(payload);
-
-			/* Parsers fail to parse a string array.
-			 * converting it to an JSON object as a workaround */
-			String obj = "{ \"products\": " + payload + "}";
-
-			JSONParser parser = new JSONParser();
-			JSONObject obj1     = (JSONObject)parser.parse(obj);
-			products    = (JSONArray)obj1.get("products");
-
-		} catch (ParseException pe){
-			logger.error("Get API Product parse error " + pe.getMessage());
-			throw new IOException(pe.getMessage());
-		} catch (HttpResponseException e) {
-			logger.error("Get API Product error " + e.getMessage());
-			throw new IOException(e.getMessage());
-		}
-
-		return products;
-	}
-
-	public static boolean doesAPIProductExist(ServerProfile profile, String apiProduct)
-			throws IOException {
-		try {
-			logger.info("Checking if APIProduct - " +apiProduct + " exist");
-			RestUtil restUtil = new RestUtil(profile);
-			HttpResponse response = restUtil.getOrgConfig(profile, "apiproducts/"+URLEncoder.encode(apiProduct, "UTF-8"));
-			if(response == null)
-				return false;
-		} catch (HttpResponseException e) {
-			throw new IOException(e.getMessage());
-		}
-
-		return true;
-	}
+        return true;
+    }
 }
 
 
