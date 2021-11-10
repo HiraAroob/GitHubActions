@@ -12,7 +12,7 @@ for dir in */; do
 			
 			for i in "${my_array[@]}"; do   # access each element of array
 					
-				mvn apigee-config:apps -Dusername=hira.aroob@abacuscambridge.com -Dpassword=  -Ptest -Dapigee.config.file=$i -Dapigee.config.options=update 				
+				mvn -Ptest apigee-config:apps -Dusername=hira.aroob@abacuscambridge.com -Dpassword=  -Dapigee.config.file=$i -Dapigee.config.options=update 				
 			done
 		echo "update maven command"
 	fi
