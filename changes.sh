@@ -1,14 +1,19 @@
 for dir in */; do
     echo "$dir"
 	ConfigChanges=`git diff --name-only HEAD HEAD~1 | grep "$dir"`
-	echo "$ConfigChanges"
-	if [[ $? -eq 0 ]]
+	#echo "$ConfigChanges"
+	#echo "$?"
+	if [[ $ConfigChanges = "" ]]
 	then
-		export EdgeConfigOptions="none"
-		echo "none"
+		echo "No organization changes detected"
 	else
-		export EdgeConfigOptions="update"
+		#echo "Number of elements in the array: ${#ConfigChanges[@]}"
+		my_array=($(echo $ConfigChanges))
+			
+			for i in "${my_array[@]}"; do   # access each element of array
+					
+				mvn apigee-config:apps -Dusername=hira.aroob@abacuscambridge.com -Dpassword=  -Ptest -Dapigee.config.file=$i -Dapigee.config.options=update 				
+			done
 		echo "update maven command"
-		#mvn clean install -Dusername=${apigeeUsername} -Dpassword=${apigeePassword} -Dapigee.config.options=update -P prod -Dorg=Test-eval
 	fi
 done
