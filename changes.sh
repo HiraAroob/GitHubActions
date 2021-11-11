@@ -3,8 +3,8 @@ for dir in */; do
 	ConfigChanges=`git diff --name-only HEAD HEAD~1 | grep "$dir"`
 	#echo "$ConfigChanges"
 	#echo "$?"
-	git reflog
-	#git checkout HEAD@{...}
+	#git reflog
+	
 	if [[ $ConfigChanges = "" ]]
 	then
 		echo "No organization changes detected"
